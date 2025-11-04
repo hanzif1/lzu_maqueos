@@ -1,0 +1,74 @@
+# 首先定义链接的目标.o文件
+OBJS = \
+	init/head.o \
+	init/main.o \
+	drv/console.o \
+	drv/font.o \
+	excp/exception_handler.o \
+	excp/exception.o 
+
+# 定义交叉编译工具的目录和前缀
+GNU=../../cross-tool/bin/loongarch64-unknown-linux-gnu-
+# 定义C编译器为工具里的gcc
+CC = $(GNU)gcc
+# 定义链接器
+LD = $(GNU)ld
+
+# 定义编译选项，其中：
+# -Wall: 显示所有警告信息
+# -Werror: 报错时停止编译
+# -O: 优化编译
+# -fno-omit-frame-pointer: 不省略帧指针，便于调试
+# -ggdb: 调试信息
+# -MD: 生成.d文件，记录每个.c文件依赖的头文件
+# -march=loongarch64: 指定架构
+# -mabi=lp64: 指定ABI
+# -ffreestanding: 定义一个无操作系统的环境
+# -fno-common: 不使用全局变量
+# -nostdlib: 不使用标准库
+# -Iinclude: 指定头文件目录
+# -fno-stack-protector: 不使用栈保护
+# -fno-pie ， -no-pie: 不生成位置无关可执行文件 (PIE)
+CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb -MD -march=loongarch64 -mabi=lp64 -ffreestanding \
+-fno-common -nostdlib -Iinclude -fno-stack-protector -fno-pie -no-pie
+
+# 定义链接器的链接选项，其中：
+# -z max-page-size=4096: 指定最大页大小为4KB
+# -Ttext 0x200000: 指定代码段起始地址为0x200000
+LDFLAGS = -z max-page-size=4096 -Ttext 0x200000
+
+# 定义从.c文件到.o文件的规则，其中：
+# @: 不在终端显示该命令本身
+# $(CC) $(CFLAGS): 使用上面定义的C编译器和编译选项
+# -c: 只编译，不链接
+# -o $*.o: 指定输出文件 (例如: main.o)
+# $<: 第一个依赖项 (例如: main.c)
+.c.o:
+	@$(CC) $(CFLAGS) -c -o $*.o $<
+
+# 定义从.S文件到.o文件的规则，其中：
+# $(CC) $(CFLAGS): 使用上面定义的C编译器和编译选项
+# -c: 只编译，不链接
+# -o $*.o: 指定输出文件 (例如: main.o)
+# $<: 第一个依赖项 (例如: main.S)
+.S.o:
+	@$(CC) $(CFLAGS) -c -o $*.o $<
+
+# 默认目标 (当只输入 'make' 时执行)
+all: kernel
+
+# 'kernel' 目标：链接所有 .o 文件生成最终的 kernel 可执行文件，其中：
+# $(OBJS): 所有 .o 文件
+# $(LD) $(LDFLAGS): 使用上面定义的链接器和链接选项
+# -o kernel: 指定输出文件为kernel
+kernel: $(OBJS)
+	@$(LD) $(LDFLAGS) $(OBJS) -o kernel
+
+# 'clean' 目标：用于清理编译生成的文件，其中：
+# find . -name '*.o' -type f -exec rm -rf {} \;: 删除所有 .o 文件
+# find . -name '*.d' -type f -exec rm -rf {} \;: 删除所有 .d 文件
+# rm -f kernel: 删除 kernel 可执行文件
+clean: 
+	@find . -name '*.o' -type f -exec rm -rf {} \;
+	@find . -name '*.d' -type f -exec rm -rf {} \;
+	@rm -f kernel
